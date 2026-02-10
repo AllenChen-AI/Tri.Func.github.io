@@ -1,1 +1,1 @@
-# Tri.Func.github.io
+# TriFunc.github.io
