@@ -1,0 +1,241 @@
+import React, { useState, useEffect } from 'react';
+import { RefreshCw, CheckCircle, XCircle, Award, BookOpen } from 'lucide-react';
+
+const App = () => {
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [feedback, setFeedback] = useState(null); // 'correct', 'incorrect' or null
+  const [showCheatSheet, setShowCheatSheet] = useState(false);
+
+  // 定義題庫，根據用戶上傳的筆記內容
+  // 口訣：奇變偶不變 (遇到 90, 270 奇數型 -> 函數變; 遇到 180, 360 偶數型 -> 函數不變)
+  // 正負看象限 (看原函數在該象限的正負)
+  const questions = [
+    // 1. 負角公式 (-θ) -> 第四象限 (cos正, sin/tan負)
+    { q: "sin(-θ)", a: "-sin θ", type: "負角" },
+    { q: "cos(-θ)", a: "cos θ", type: "負角" },
+    { q: "tan(-θ)", a: "-tan θ", type: "負角" },
+
+    // 2. 180 - θ -> 第二象限 (sin正, cos/tan負)
+    { q: "sin(180° - θ)", a: "sin θ", type: "180° ± θ" },
+    { q: "cos(180° - θ)", a: "-cos θ", type: "180° ± θ" },
+    { q: "tan(180° - θ)", a: "-tan θ", type: "180° ± θ" },
+
+    // 180 + θ -> 第三象限 (tan正, sin/cos負)
+    { q: "sin(180° + θ)", a: "-sin θ", type: "180° ± θ" },
+    { q: "cos(180° + θ)", a: "-cos θ", type: "180° ± θ" },
+    { q: "tan(180° + θ)", a: "tan θ", type: "180° ± θ" },
+
+    // 3. 360 - θ -> 第四象限 (cos正, sin/tan負)
+    { q: "sin(360° - θ)", a: "-sin θ", type: "360° - θ" },
+    { q: "cos(360° - θ)", a: "cos θ", type: "360° - θ" },
+    { q: "tan(360° - θ)", a: "-tan θ", type: "360° - θ" },
+
+    // 4. 90 + θ -> 第二象限 (變函數: sin變cos, cos變sin)
+    // 原函數 sin 在第二象限是正 -> +cos
+    { q: "sin(90° + θ)", a: "cos θ", type: "90° + θ" },
+    // 原函數 cos 在第二象限是負 -> -sin
+    { q: "cos(90° + θ)", a: "-sin θ", type: "90° + θ" },
+
+    // 5. 270 - θ -> 第三象限 (變函數)
+    // 原函數 sin 在第三象限是負 -> -cos
+    { q: "sin(270° - θ)", a: "-cos θ", type: "270° ± θ" },
+    // 原函數 cos 在第三象限是負 -> -sin
+    { q: "cos(270° - θ)", a: "-sin θ", type: "270° ± θ" },
+
+    // 270 + θ -> 第四象限 (變函數)
+    // 原函數 sin 在第四象限是負 -> -cos
+    { q: "sin(270° + θ)", a: "-cos θ", type: "270° ± θ" },
+    // 原函數 cos 在第四象限是正 -> +sin
+    { q: "cos(270° + θ)", a: "sin θ", type: "270° ± θ" },
+  ];
+
+  // 所有可能的答案選項
+  const options = [
+    { label: "sin θ", value: "sin θ" },
+    { label: "-sin θ", value: "-sin θ" },
+    { label: "cos θ", value: "cos θ" },
+    { label: "-cos θ", value: "-cos θ" },
+    { label: "tan θ", value: "tan θ" },
+    { label: "-tan θ", value: "-tan θ" },
+  ];
+
+  const generateQuestion = () => {
+    let randomIndex;
+    // 確保新題目與當前題目不同 (防止連續重複)，除非題庫只有一題
+    do {
+      randomIndex = Math.floor(Math.random() * questions.length);
+    } while (questions.length > 1 && currentQuestion && questions[randomIndex].q === currentQuestion.q);
+
+    setCurrentQuestion(questions[randomIndex]);
+    setFeedback(null);
+  };
+
+  useEffect(() => {
+    generateQuestion();
+  }, []);
+
+  const handleAnswer = (selectedAnswer) => {
+    if (feedback) return; // Prevent clicking while feedback is showing
+
+    if (selectedAnswer === currentQuestion.a) {
+      setScore(score + 10);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      if (newStreak > bestStreak) setBestStreak(newStreak);
+      setFeedback('correct');
+    } else {
+      setStreak(0);
+      setFeedback('incorrect');
+    }
+
+    // Auto next question after delay
+    setTimeout(() => {
+      generateQuestion();
+    }, 1500);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 font-sans flex flex-col items-center justify-center">
+      
+      {/* Header Info */}
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-4 mb-6 flex justify-between items-center border border-slate-200">
+        <div className="flex flex-col">
+          <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">目前分數</span>
+          <span className="text-2xl font-black text-blue-600">{score}</span>
+        </div>
+        <div className="flex flex-col items-end">
+          <div className="flex items-center gap-1 text-orange-500">
+            <Award size={16} />
+            <span className="text-xs font-bold uppercase">連對</span>
+          </div>
+          <span className="text-2xl font-black text-orange-500">{streak}</span>
+        </div>
+      </div>
+
+      {/* Question Card */}
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 relative">
+        {/* Progress Bar visual (decorative) */}
+        <div className="h-2 bg-slate-100 w-full">
+          <div 
+            className="h-full bg-blue-500 transition-all duration-500 ease-out" 
+            style={{ width: `${Math.min((streak / 10) * 100, 100)}%` }}
+          />
+        </div>
+
+        <div className="p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
+          <span className="text-slate-400 text-sm font-medium mb-2 bg-slate-100 px-3 py-1 rounded-full">
+            {currentQuestion?.type || "題目"}
+          </span>
+          <h1 className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight my-4">
+            {currentQuestion?.q}
+          </h1>
+          <p className="text-slate-400 text-sm">請選擇正確的化簡結果</p>
+        </div>
+
+        {/* Feedback Overlay */}
+        {feedback && (
+          <div className={`absolute inset-0 flex flex-col items-center justify-center z-10 backdrop-blur-sm bg-opacity-90 transition-all duration-300 ${feedback === 'correct' ? 'bg-green-50/90' : 'bg-red-50/90'}`}>
+            {feedback === 'correct' ? (
+              <>
+                <CheckCircle className="w-16 h-16 text-green-500 mb-2 animate-bounce" />
+                <h2 className="text-2xl font-bold text-green-700">答對了！</h2>
+                <p className="text-green-600 font-medium">{currentQuestion.q} = {currentQuestion.a}</p>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-16 h-16 text-red-500 mb-2 animate-pulse" />
+                <h2 className="text-2xl font-bold text-red-700">答錯了</h2>
+                <p className="text-slate-600 mt-2">正確答案是：</p>
+                <p className="text-2xl font-bold text-slate-800 mt-1">{currentQuestion.a}</p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Answer Options Grid */}
+      <div className="w-full max-w-md mt-6 grid grid-cols-2 gap-3">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => handleAnswer(option.value)}
+            disabled={feedback !== null}
+            className={`
+              p-4 rounded-xl text-xl font-bold transition-all duration-200 shadow-sm border
+              ${feedback === null 
+                ? 'bg-white hover:bg-blue-50 hover:border-blue-300 border-slate-200 text-slate-700 active:scale-95' 
+                : 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed'}
+            `}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Footer / Controls */}
+      <div className="mt-8 flex gap-4">
+        <button 
+          onClick={() => setShowCheatSheet(!showCheatSheet)}
+          className="flex items-center gap-2 px-4 py-2 bg-white rounded-full text-slate-600 text-sm font-medium shadow-sm hover:bg-slate-50 border border-slate-200"
+        >
+          <BookOpen size={16} />
+          {showCheatSheet ? "隱藏重點" : "查看重點整理"}
+        </button>
+        
+        <button 
+          onClick={() => {
+            setScore(0);
+            setStreak(0);
+            generateQuestion();
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-white rounded-full text-slate-600 text-sm font-medium shadow-sm hover:bg-slate-50 border border-slate-200"
+        >
+          <RefreshCw size={16} />
+          重置
+        </button>
+      </div>
+
+      {/* Cheat Sheet Modal */}
+      {showCheatSheet && (
+        <div className="w-full max-w-md mt-4 bg-yellow-50 p-6 rounded-2xl border border-yellow-200 text-yellow-900 text-sm shadow-inner">
+          <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+            📌 重點筆記
+          </h3>
+          <ul className="space-y-3 list-disc pl-4">
+            <li>
+              <span className="font-bold">奇變偶不變：</span>
+              <div className="text-yellow-800/80 mt-1">
+                90°, 270° (奇數型) → 函數變 → sin變cos, cos變sin<br/>
+                180°, 360° (偶數型) → 函數不變
+              </div>
+            </li>
+            <li>
+              <span className="font-bold">正負看象限：</span>
+              <div className="text-yellow-800/80 mt-1">
+                判斷<span className="underline">原函數</span>所在象限的正負。<br/>
+                (例: sin 在第二象限是正的，cos 是負的)
+              </div>
+            </li>
+            <li>
+              <span className="font-bold">負角公式：</span>
+              <div className="text-yellow-800/80 mt-1">
+                cos(-θ) = cos θ (偶函數)<br/>
+                sin(-θ) = -sin θ (奇函數)<br/>
+                tan(-θ) = -tan θ (奇函數)
+              </div>
+            </li>
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-8 text-slate-400 text-xs text-center">
+        Created based on user notes
+      </div>
+    </div>
+  );
+};
+
+export default App;
