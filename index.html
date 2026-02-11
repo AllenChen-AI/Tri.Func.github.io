@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三角函數公式測驗</title>
+    <title>三角函數大師：闖關挑戰</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -11,10 +11,49 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- 引入 Babel 用於解析 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 引入 KaTeX 用於顯示 LaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     
     <style>
         body {
             font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            overflow-x: hidden;
+        }
+        .btn-option:active {
+            transform: scale(0.95);
+        }
+        .katex {
+            font-size: 1.1em;
+        }
+        
+        /* 炸彈動畫 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-hard {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+        }
+        
+        /* 爆炸動畫 */
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(3); opacity: 0.8; }
+            100% { transform: scale(5); opacity: 0; }
+        }
+        .explosion-effect {
+            animation: explode 0.5s forwards;
         }
     </style>
 </head>
@@ -22,99 +61,290 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // 簡單的 SVG Icon 元件替代 Lucide-react，確保單檔可執行
-        const IconRefresh = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        // --- Components ---
+        
+        const Latex = ({ children, className = "", displayMode = false }) => {
+            const containerRef = React.useRef(null);
+            React.useEffect(() => {
+                if (window.katex && containerRef.current) {
+                    window.katex.render(children, containerRef.current, {
+                        throwOnError: false,
+                        displayMode: displayMode
+                    });
+                }
+            }, [children, displayMode]);
+            return <span ref={containerRef} className={className} />;
+        };
+
+        // --- Game Icons (SVG) ---
+        
+        const GameBadge = ({ level, className = "w-16 h-16" }) => {
+            // 定義顏色與樣式
+            // Lv 1-3: 戒指 (銅/銀/金)
+            // Lv 4: 戒指 (白金)
+            // Lv 5-7: 寶石戒指 (翡翠/紅寶/藍鑽)
+            // Lv 8: 獎盃
+            // Lv 9: 皇冠
+
+            const getColors = (lvl) => {
+                switch(lvl) {
+                    case 1: return { main: "#CD7F32", dark: "#8B4513", light: "#E6A86F" }; // 銅
+                    case 2: return { main: "#C0C0C0", dark: "#808080", light: "#E8E8E8" }; // 銀
+                    case 3: return { main: "#FFD700", dark: "#B8860B", light: "#FFFACD" }; // 金
+                    case 4: return { main: "#E5E4E2", dark: "#A9A9A9", light: "#F5F5F5" }; // 白金
+                    case 5: return { main: "#50C878", dark: "#006400", light: "#98FB98", ring: "#E5E4E2" }; // 翡翠 (白金底)
+                    case 6: return { main: "#E0115F", dark: "#8B0000", light: "#FF69B4", ring: "#FFD700" }; // 紅寶 (金底)
+                    case 7: return { main: "#0047AB", dark: "#00008B", light: "#4169E1", ring: "#FFD700" }; // 藍鑽 (金底)
+                    case 8: return { main: "#FFD700", dark: "#B8860B", light: "#FFFFE0" }; // 獎盃
+                    case 9: return { main: "#FFD700", dark: "#DAA520", light: "#FFFFF0", gem: "#E0115F" }; // 皇冠
+                    default: return { main: "#888", dark: "#444", light: "#ccc" };
+                }
+            };
+
+            const colors = getColors(level);
+
+            // 定義濾鏡 (金屬光澤)
+            const defs = (
+                <defs>
+                    <linearGradient id={`grad-${level}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={colors.light} />
+                        <stop offset="50%" stopColor={colors.main} />
+                        <stop offset="100%" stopColor={colors.dark} />
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                </defs>
+            );
+
+            // 1. 基礎戒指 SVG
+            if (level <= 4) {
+                return (
+                    <svg viewBox="0 0 100 100" className={className} filter="drop-shadow(2px 4px 6px rgba(0,0,0,0.3))">
+                        {defs}
+                        <circle cx="50" cy="50" r="35" fill="none" stroke={`url(#grad-${level})`} strokeWidth="12" />
+                        <circle cx="50" cy="50" r="35" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeDasharray="10 5" opacity="0.5" />
+                        {/* 亮點 */}
+                        <circle cx="25" cy="25" r="4" fill="white" opacity="0.8" />
+                    </svg>
+                );
+            }
+
+            // 2. 寶石戒指 SVG
+            if (level <= 7) {
+                return (
+                    <svg viewBox="0 0 100 100" className={className} filter="drop-shadow(2px 4px 6px rgba(0,0,0,0.3))">
+                        {defs}
+                        {/* 戒台 */}
+                        <circle cx="50" cy="55" r="30" fill="none" stroke={colors.ring || colors.main} strokeWidth="10" />
+                        {/* 寶石底座 */}
+                        <path d="M35 30 L65 30 L50 55 Z" fill={colors.dark} />
+                        {/* 寶石本體 */}
+                        <path d="M50 10 L70 30 L50 50 L30 30 Z" fill={`url(#grad-${level})`} stroke={colors.light} strokeWidth="1" />
+                        <path d="M50 10 L70 30 L50 50 L30 30 Z" fill="url(#grad-level)" opacity="0.3" />
+                        {/* 閃光 */}
+                        <path d="M45 25 L50 15 L55 25 L50 35 Z" fill="white" opacity="0.6" />
+                    </svg>
+                );
+            }
+
+            // 3. 獎盃 (Lv 8)
+            if (level === 8) {
+                return (
+                    <svg viewBox="0 0 100 100" className={className} filter="drop-shadow(2px 4px 6px rgba(0,0,0,0.3))">
+                        {defs}
+                        <path d="M30 20 L70 20 L65 60 C65 75 35 75 35 60 Z" fill={`url(#grad-${level})`} stroke={colors.dark} strokeWidth="2" />
+                        <path d="M30 25 C20 25 20 50 32 50" fill="none" stroke={`url(#grad-${level})`} strokeWidth="5" />
+                        <path d="M70 25 C80 25 80 50 68 50" fill="none" stroke={`url(#grad-${level})`} strokeWidth="5" />
+                        <rect x="35" y="75" width="30" height="5" fill={colors.dark} />
+                        <path d="M30 80 L70 80 L75 90 L25 90 Z" fill={colors.main} />
+                        <circle cx="50" cy="40" r="8" fill={colors.light} opacity="0.4" />
+                    </svg>
+                );
+            }
+
+            // 4. 皇冠 (Lv 9)
+            if (level === 9) {
+                return (
+                    <svg viewBox="0 0 100 100" className={className} filter="drop-shadow(2px 4px 6px rgba(0,0,0,0.3))">
+                        {defs}
+                        {/* 皇冠底座 */}
+                        <path d="M20 70 L80 70 L75 90 L25 90 Z" fill={colors.dark} />
+                        {/* 皇冠主體 */}
+                        <path d="M20 70 L20 40 L35 60 L50 20 L65 60 L80 40 L80 70 Z" fill={`url(#grad-${level})`} stroke={colors.light} strokeWidth="2" />
+                        {/* 寶石 */}
+                        <circle cx="50" cy="80" r="5" fill={colors.gem} stroke="white" strokeWidth="1" />
+                        <circle cx="20" cy="40" r="3" fill={colors.gem} />
+                        <circle cx="50" cy="20" r="4" fill={colors.gem} />
+                        <circle cx="80" cy="40" r="3" fill={colors.gem} />
+                    </svg>
+                );
+            }
+            return null;
+        };
+
+
+        // --- Simple Icons ---
+        const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>;
+        const IconCheck = () => <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500 mb-2 animate-bounce"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
+        const IconX = () => <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 mb-2 animate-pulse"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>;
+        const IconAward = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>;
+        const IconBook = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
+        const IconBomb = ({ shaking }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill={shaking ? "#ef4444" : "#1e293b"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={shaking ? "shake-hard" : ""}>
+                <circle cx="11" cy="13" r="9"></circle>
+                <path d="M11 4a3 3 0 0 1 2.23-5"></path>
+                <path d="M14.5 7.5 18 4"></path>
+            </svg>
         );
-        const IconCheck = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500 mb-2 animate-bounce"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        );
-        const IconX = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 mb-2 animate-pulse"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        );
-        const IconAward = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-        );
-        const IconBook = () => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        const IconHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>;
+        const IconTrophy = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17"></path><path d="M14 14.66V17"></path><path d="M18 2h-6c-1.66 0-3 1.34-3 3v4.66c0 3.32 2.68 6 6 6s6-2.68 6-6V5c0-1.66-1.34-3-3-3z"></path></svg>;
+        const IconHeart = ({ filled }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={filled ? "#ef4444" : "none"} stroke={filled ? "#ef4444" : "#cbd5e1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
         );
 
-        const App = () => {
+        // 關卡設定 (更新：去除 emoji，改用 Icon)
+        const LEVELS = [
+            { level: 1, type: "symbolic", time: 10, allowMistakes: 3, resetTo: 0, name: "新手入門", badge: "銅環" },
+            { level: 2, type: "symbolic", time: 10, allowMistakes: 3, resetTo: 0, name: "初試啼聲", badge: "銀環" },
+            { level: 3, type: "symbolic", time: 10, allowMistakes: 3, resetTo: 0, name: "符號大師", badge: "金環" },
+            
+            { level: 4, type: "numeric", time: 7, allowMistakes: 2, resetTo: 3, name: "數值計算", badge: "白金環" },
+            { level: 5, type: "numeric", time: 7, allowMistakes: 2, resetTo: 3, name: "精準打擊", badge: "翡翠環" },
+            { level: 6, type: "numeric", time: 7, allowMistakes: 2, resetTo: 3, name: "神算子", badge: "紅寶石環" },
+            
+            { level: 7, type: "mixed", time: 5, allowMistakes: 0, resetTo: 6, name: "融會貫通", badge: "藍鑽環" },
+            { level: 8, type: "mixed", time: 5, allowMistakes: 0, resetTo: 6, name: "登峰造極", badge: "大師獎盃" },
+            { level: 9, type: "mixed", time: 5, allowMistakes: 0, resetTo: 6, name: "傳奇誕生", badge: "璀璨皇冠" },
+        ];
+
+        // 題目資料 (維持不變)
+        const SYMBOLIC_QUESTIONS = [
+            { q: "\\sin(-\\theta)", a: "-\\sin \\theta", type: "符號化簡" },
+            { q: "\\cos(-\\theta)", a: "\\cos \\theta", type: "符號化簡" },
+            { q: "\\tan(-\\theta)", a: "-\\tan \\theta", type: "符號化簡" },
+            { q: "\\sin(180^\\circ - \\theta)", a: "\\sin \\theta", type: "符號化簡" },
+            { q: "\\cos(180^\\circ - \\theta)", a: "-\\cos \\theta", type: "符號化簡" },
+            { q: "\\tan(180^\\circ - \\theta)", a: "-\\tan \\theta", type: "符號化簡" },
+            { q: "\\sin(180^\\circ + \\theta)", a: "-\\sin \\theta", type: "符號化簡" },
+            { q: "\\cos(180^\\circ + \\theta)", a: "-\\cos \\theta", type: "符號化簡" },
+            { q: "\\tan(180^\\circ + \\theta)", a: "\\tan \\theta", type: "符號化簡" },
+            { q: "\\sin(360^\\circ - \\theta)", a: "-\\sin \\theta", type: "符號化簡" },
+            { q: "\\cos(360^\\circ - \\theta)", a: "\\cos \\theta", type: "符號化簡" },
+            { q: "\\tan(360^\\circ - \\theta)", a: "-\\tan \\theta", type: "符號化簡" },
+            { q: "\\sin(90^\\circ + \\theta)", a: "\\cos \\theta", type: "符號化簡" },
+            { q: "\\cos(90^\\circ + \\theta)", a: "-\\sin \\theta", type: "符號化簡" },
+            { q: "\\sin(270^\\circ - \\theta)", a: "-\\cos \\theta", type: "符號化簡" },
+            { q: "\\cos(270^\\circ - \\theta)", a: "-\\sin \\theta", type: "符號化簡" },
+            { q: "\\sin(270^\\circ + \\theta)", a: "-\\cos \\theta", type: "符號化簡" },
+            { q: "\\cos(270^\\circ + \\theta)", a: "\\sin \\theta", type: "符號化簡" },
+        ];
+
+        const NUMERIC_QUESTIONS = [
+            { q: "\\sin(120^\\circ)", a: "\\dfrac{\\sqrt{3}}{2}", type: "數值求值" },
+            { q: "\\cos(120^\\circ)", a: "-\\dfrac{1}{2}", type: "數值求值" },
+            { q: "\\tan(120^\\circ)", a: "-\\sqrt{3}", type: "數值求值" },
+            { q: "\\sin(135^\\circ)", a: "\\dfrac{\\sqrt{2}}{2}", type: "數值求值" },
+            { q: "\\cos(135^\\circ)", a: "-\\dfrac{\\sqrt{2}}{2}", type: "數值求值" },
+            { q: "\\tan(135^\\circ)", a: "-1", type: "數值求值" },
+            { q: "\\sin(150^\\circ)", a: "\\dfrac{1}{2}", type: "數值求值" },
+            { q: "\\cos(150^\\circ)", a: "-\\dfrac{\\sqrt{3}}{2}", type: "數值求值" },
+            { q: "\\tan(150^\\circ)", a: "-\\dfrac{1}{\\sqrt{3}}", type: "數值求值" },
+            { q: "\\sin(210^\\circ)", a: "-\\dfrac{1}{2}", type: "數值求值" },
+            { q: "\\cos(210^\\circ)", a: "-\\dfrac{\\sqrt{3}}{2}", type: "數值求值" },
+            { q: "\\tan(210^\\circ)", a: "\\dfrac{1}{\\sqrt{3}}", type: "數值求值" },
+            { q: "\\sin(225^\\circ)", a: "-\\dfrac{\\sqrt{2}}{2}", type: "數值求值" },
+            { q: "\\cos(225^\\circ)", a: "-\\dfrac{\\sqrt{2}}{2}", type: "數值求值" },
+            { q: "\\tan(225^\\circ)", a: "1", type: "數值求值" },
+            { q: "\\sin(240^\\circ)", a: "-\\dfrac{\\sqrt{3}}{2}", type: "數值求值" },
+            { q: "\\cos(240^\\circ)", a: "-\\dfrac{1}{2}", type: "數值求值" },
+            { q: "\\tan(240^\\circ)", a: "\\sqrt{3}", type: "數值求值" },
+            { q: "\\sin(300^\\circ)", a: "-\\dfrac{\\sqrt{3}}{2}", type: "數值求值" },
+            { q: "\\cos(300^\\circ)", a: "\\dfrac{1}{2}", type: "數值求值" },
+            { q: "\\tan(300^\\circ)", a: "-\\sqrt{3}", type: "數值求值" },
+            { q: "\\sin(315^\\circ)", a: "-\\dfrac{\\sqrt{2}}{2}", type: "數值求值" },
+            { q: "\\cos(315^\\circ)", a: "\\dfrac{\\sqrt{2}}{2}", type: "數值求值" },
+            { q: "\\tan(315^\\circ)", a: "-1", type: "數值求值" },
+            { q: "\\sin(330^\\circ)", a: "-\\dfrac{1}{2}", type: "數值求值" },
+            { q: "\\cos(330^\\circ)", a: "\\dfrac{\\sqrt{3}}{2}", type: "數值求值" },
+            { q: "\\tan(330^\\circ)", a: "-\\dfrac{1}{\\sqrt{3}}", type: "數值求值" },
+        ];
+
+        const SYMBOLIC_OPTION_POOL = [
+            "\\sin \\theta", "-\\sin \\theta", "\\cos \\theta", "-\\cos \\theta", "\\tan \\theta", "-\\tan \\theta"
+        ];
+        const NUMERIC_VALUE_POOL = [
+            "0", "1", "-1", "\\dfrac{1}{2}", "-\\dfrac{1}{2}", "\\dfrac{\\sqrt{2}}{2}", "-\\dfrac{\\sqrt{2}}{2}", 
+            "\\dfrac{\\sqrt{3}}{2}", "-\\dfrac{\\sqrt{3}}{2}", "\\sqrt{3}", "-\\sqrt{3}", "\\dfrac{1}{\\sqrt{3}}", "-\\dfrac{1}{\\sqrt{3}}"
+        ];
+
+        const shuffleArray = (array) => {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        };
+
+        // --- 子頁面：練習模式 ---
+        const PracticeMode = ({ onBack }) => {
             const [currentQuestion, setCurrentQuestion] = React.useState(null);
+            const [currentOptions, setCurrentOptions] = React.useState([]);
             const [score, setScore] = React.useState(0);
             const [streak, setStreak] = React.useState(0);
-            const [bestStreak, setBestStreak] = React.useState(0);
-            const [feedback, setFeedback] = React.useState(null); 
+            const [feedback, setFeedback] = React.useState(null);
             const [showCheatSheet, setShowCheatSheet] = React.useState(false);
 
-            const questions = [
-                { q: "sin(-θ)", a: "-sin θ", type: "負角" },
-                { q: "cos(-θ)", a: "cos θ", type: "負角" },
-                { q: "tan(-θ)", a: "-tan θ", type: "負角" },
-                { q: "sin(180° - θ)", a: "sin θ", type: "180° ± θ" },
-                { q: "cos(180° - θ)", a: "-cos θ", type: "180° ± θ" },
-                { q: "tan(180° - θ)", a: "-tan θ", type: "180° ± θ" },
-                { q: "sin(180° + θ)", a: "-sin θ", type: "180° ± θ" },
-                { q: "cos(180° + θ)", a: "-cos θ", type: "180° ± θ" },
-                { q: "tan(180° + θ)", a: "tan θ", type: "180° ± θ" },
-                { q: "sin(360° - θ)", a: "-sin θ", type: "360° - θ" },
-                { q: "cos(360° - θ)", a: "cos θ", type: "360° - θ" },
-                { q: "tan(360° - θ)", a: "-tan θ", type: "360° - θ" },
-                { q: "sin(90° + θ)", a: "cos θ", type: "90° + θ" },
-                { q: "cos(90° + θ)", a: "-sin θ", type: "90° + θ" },
-                { q: "sin(270° - θ)", a: "-cos θ", type: "270° ± θ" },
-                { q: "cos(270° - θ)", a: "-sin θ", type: "270° ± θ" },
-                { q: "sin(270° + θ)", a: "-cos θ", type: "270° ± θ" },
-                { q: "cos(270° + θ)", a: "sin θ", type: "270° ± θ" },
-            ];
-
-            const options = [
-                { label: "sin θ", value: "sin θ" },
-                { label: "-sin θ", value: "-sin θ" },
-                { label: "cos θ", value: "cos θ" },
-                { label: "-cos θ", value: "-cos θ" },
-                { label: "tan θ", value: "tan θ" },
-                { label: "-tan θ", value: "-tan θ" },
-            ];
+            const allQuestions = [...SYMBOLIC_QUESTIONS, ...NUMERIC_QUESTIONS];
 
             const generateQuestion = () => {
                 let randomIndex;
+                let newQuestion;
                 do {
-                    randomIndex = Math.floor(Math.random() * questions.length);
-                } while (questions.length > 1 && currentQuestion && questions[randomIndex].q === currentQuestion.q);
+                    randomIndex = Math.floor(Math.random() * allQuestions.length);
+                    newQuestion = allQuestions[randomIndex];
+                } while (allQuestions.length > 1 && currentQuestion && newQuestion.q === currentQuestion.q);
 
-                setCurrentQuestion(questions[randomIndex]);
+                setCurrentQuestion(newQuestion);
                 setFeedback(null);
+
+                const correctAnswer = newQuestion.a;
+                const pool = newQuestion.type === "符號化簡" ? SYMBOLIC_OPTION_POOL : NUMERIC_VALUE_POOL;
+                const distractors = pool.filter(val => val !== correctAnswer).sort(() => 0.5 - Math.random()).slice(0, 3);
+                setCurrentOptions(shuffleArray([...distractors, correctAnswer]));
             };
 
-            React.useEffect(() => {
-                generateQuestion();
-            }, []);
+            React.useEffect(() => { generateQuestion(); }, []);
 
-            const handleAnswer = (selectedAnswer) => {
+            const handleAnswer = (val) => {
                 if (feedback) return;
-
-                if (selectedAnswer === currentQuestion.a) {
+                if (val === currentQuestion.a) {
                     setScore(score + 10);
-                    const newStreak = streak + 1;
-                    setStreak(newStreak);
-                    if (newStreak > bestStreak) setBestStreak(newStreak);
+                    setStreak(streak + 1);
                     setFeedback('correct');
                 } else {
                     setStreak(0);
                     setFeedback('incorrect');
                 }
-
-                setTimeout(() => {
-                    generateQuestion();
-                }, 1500);
+                setTimeout(generateQuestion, 1500);
             };
 
             return (
-                <div className="min-h-screen bg-slate-50 text-slate-800 p-4 font-sans flex flex-col items-center justify-center">
-                    
-                    {/* Header */}
-                    <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-4 mb-6 flex justify-between items-center border border-slate-200">
+                <div className="w-full max-w-md mx-auto">
+                    <div className="flex justify-between items-center mb-4">
+                         <button onClick={onBack} className="flex items-center gap-1 text-slate-500 hover:text-blue-600 font-bold">
+                            <IconHome /> 返回主選單
+                        </button>
+                        <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm border border-slate-200">
+                             <div className="text-xs font-bold text-slate-400">練習模式</div>
+                        </div>
+                    </div>
+
+                    <div className="w-full bg-white rounded-2xl shadow-sm p-4 mb-6 flex justify-between items-center border border-slate-200">
                         <div className="flex flex-col">
                             <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">目前分數</span>
                             <span className="text-2xl font-black text-blue-600">{score}</span>
@@ -128,119 +358,448 @@
                         </div>
                     </div>
 
-                    {/* Question Card */}
-                    <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 relative select-none">
-                        <div className="h-2 bg-slate-100 w-full">
-                            <div 
-                                className="h-full bg-blue-500 transition-all duration-500 ease-out" 
-                                style={{ width: `${Math.min((streak / 10) * 100, 100)}%` }}
-                            />
+                    <div className="w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 relative select-none">
+                         <div className="h-2 bg-slate-100 w-full">
+                            <div className="h-full bg-blue-500 transition-all duration-500 ease-out" style={{ width: `${Math.min((streak / 10) * 100, 100)}%` }} />
                         </div>
-
-                        <div className="p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
-                            <span className="text-slate-400 text-sm font-medium mb-2 bg-slate-100 px-3 py-1 rounded-full">
-                                {currentQuestion?.type || "題目"}
+                        <div className="p-8 text-center min-h-[220px] flex flex-col items-center justify-center">
+                            <span className={`text-sm font-medium mb-3 px-3 py-1 rounded-full ${currentQuestion?.type === '數值求值' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                                {currentQuestion?.type}
                             </span>
-                            <h1 className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight my-4">
-                                {currentQuestion?.q}
-                            </h1>
-                            <p className="text-slate-400 text-sm">請選擇正確的化簡結果</p>
+                            <div className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight my-4">
+                                {currentQuestion && <Latex>{currentQuestion.q}</Latex>}
+                            </div>
+                            <p className="text-slate-400 text-sm">請選擇正確的答案</p>
                         </div>
-
-                        {feedback && (
+                         {feedback && (
                             <div className={`absolute inset-0 flex flex-col items-center justify-center z-10 backdrop-blur-sm bg-opacity-90 transition-all duration-300 ${feedback === 'correct' ? 'bg-green-50/90' : 'bg-red-50/90'}`}>
                                 {feedback === 'correct' ? (
                                     <>
                                         <IconCheck />
                                         <h2 className="text-2xl font-bold text-green-700">答對了！</h2>
-                                        <p className="text-green-600 font-medium">{currentQuestion.q} = {currentQuestion.a}</p>
+                                        <div className="text-green-600 font-medium text-xl mt-2 flex items-center gap-2">
+                                            <Latex>{currentQuestion.q}</Latex> <span>=</span> <Latex>{currentQuestion.a}</Latex>
+                                        </div>
                                     </>
                                 ) : (
                                     <>
                                         <IconX />
                                         <h2 className="text-2xl font-bold text-red-700">答錯了</h2>
                                         <p className="text-slate-600 mt-2">正確答案是：</p>
-                                        <p className="text-2xl font-bold text-slate-800 mt-1">{currentQuestion.a}</p>
+                                        <div className="text-2xl font-bold text-slate-800 mt-1"><Latex>{currentQuestion.a}</Latex></div>
                                     </>
                                 )}
                             </div>
                         )}
                     </div>
 
-                    {/* Options */}
-                    <div className="w-full max-w-md mt-6 grid grid-cols-2 gap-3">
-                        {options.map((option) => (
-                            <button
-                                key={option.value}
-                                onClick={() => handleAnswer(option.value)}
-                                disabled={feedback !== null}
-                                className={`
-                                    p-4 rounded-xl text-xl font-bold transition-all duration-200 shadow-sm border
-                                    ${feedback === null 
-                                        ? 'bg-white hover:bg-blue-50 hover:border-blue-300 border-slate-200 text-slate-700 active:scale-95' 
-                                        : 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed'}
-                                `}
-                            >
-                                {option.label}
+                    <div className="grid grid-cols-2 gap-3 mt-6">
+                        {currentOptions.map((opt, i) => (
+                            <button key={i} onClick={() => handleAnswer(opt)} disabled={feedback !== null}
+                                className={`btn-option p-4 rounded-xl text-xl font-bold transition-all duration-200 shadow-sm border flex items-center justify-center min-h-[80px] ${feedback === null ? 'bg-white hover:bg-blue-50 hover:border-blue-300 border-slate-200 text-slate-700' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                                <Latex>{opt}</Latex>
                             </button>
                         ))}
                     </div>
 
-                    {/* Footer */}
                     <div className="mt-8 flex gap-4">
-                        <button 
-                            onClick={() => setShowCheatSheet(!showCheatSheet)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white rounded-full text-slate-600 text-sm font-medium shadow-sm hover:bg-slate-50 border border-slate-200"
-                        >
-                            <IconBook />
-                            {showCheatSheet ? "隱藏重點" : "查看重點整理"}
-                        </button>
-                        
-                        <button 
-                            onClick={() => {
-                                setScore(0);
-                                setStreak(0);
-                                generateQuestion();
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-white rounded-full text-slate-600 text-sm font-medium shadow-sm hover:bg-slate-50 border border-slate-200"
-                        >
-                            <IconRefresh />
-                            重置
-                        </button>
+                        <button onClick={() => setShowCheatSheet(!showCheatSheet)} className="flex items-center gap-2 px-4 py-2 bg-white rounded-full text-slate-600 text-sm font-medium shadow-sm hover:bg-slate-50 border border-slate-200"><IconBook /> {showCheatSheet ? "隱藏重點" : "查看重點整理"}</button>
                     </div>
 
-                    {/* Cheat Sheet */}
                     {showCheatSheet && (
-                        <div className="w-full max-w-md mt-4 bg-yellow-50 p-6 rounded-2xl border border-yellow-200 text-yellow-900 text-sm shadow-inner">
-                            <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-                                📌 重點筆記
-                            </h3>
-                            <ul className="space-y-3 list-disc pl-4">
-                                <li>
-                                    <span className="font-bold">奇變偶不變：</span>
-                                    <div className="text-yellow-800/80 mt-1">
-                                        90°, 270° (奇數型) → 函數變 → sin變cos, cos變sin<br/>
-                                        180°, 360° (偶數型) → 函數不變
-                                    </div>
-                                </li>
-                                <li>
-                                    <span className="font-bold">正負看象限：</span>
-                                    <div className="text-yellow-800/80 mt-1">
-                                        判斷<span className="underline">原函數</span>所在象限的正負。<br/>
-                                        (例: sin 在第二象限是正的，cos 是負的)
-                                    </div>
-                                </li>
-                                <li>
-                                    <span className="font-bold">負角公式：</span>
-                                    <div className="text-yellow-800/80 mt-1">
-                                        cos(-θ) = cos θ (偶函數)<br/>
-                                        sin(-θ) = -sin θ (奇函數)<br/>
-                                        tan(-θ) = -tan θ (奇函數)
-                                    </div>
-                                </li>
+                        <div className="mt-4 bg-yellow-50 p-6 rounded-2xl border border-yellow-200 text-yellow-900 text-sm shadow-inner mb-8">
+                             <h3 className="font-bold text-lg mb-3 flex items-center gap-2">📌 重點筆記</h3>
+                            <ul className="list-disc pl-4 space-y-1 text-yellow-800/80 mb-4">
+                                <li><span className="font-semibold">奇變偶不變</span>：<Latex>{"90^\\circ, 270^\\circ"}</Latex> 要變函數；<Latex>{"180^\\circ, 360^\\circ"}</Latex> 不變。</li>
+                                <li><span className="font-semibold">符號看象限</span>：看「原函數」在該角度象限的正負號。</li>
                             </ul>
+                            <div className="grid grid-cols-4 gap-2 text-center text-xs font-medium">
+                                <div className="bg-yellow-100/50 p-1 rounded"></div><div className="bg-yellow-100/50 p-1 rounded"><Latex>{"30^\\circ"}</Latex></div><div className="bg-yellow-100/50 p-1 rounded"><Latex>{"45^\\circ"}</Latex></div><div className="bg-yellow-100/50 p-1 rounded"><Latex>{"60^\\circ"}</Latex></div>
+                                <div className="bg-yellow-100/50 p-1 rounded text-left pl-2"><Latex>{"\\sin"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{1}{2}"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{\\sqrt{2}}{2}"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{\\sqrt{3}}{2}"}</Latex></div>
+                                <div className="bg-yellow-100/50 p-1 rounded text-left pl-2"><Latex>{"\\cos"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{\\sqrt{3}}{2}"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{\\sqrt{2}}{2}"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{1}{2}"}</Latex></div>
+                                <div className="bg-yellow-100/50 p-1 rounded text-left pl-2"><Latex>{"\\tan"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\dfrac{1}{\\sqrt{3}}"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"1"}</Latex></div><div className="bg-white p-1 rounded border border-yellow-100"><Latex>{"\\sqrt{3}"}</Latex></div>
+                            </div>
                         </div>
                     )}
+                </div>
+            );
+        };
+
+        // --- 子頁面：闖關模式 ---
+        const ChallengeMode = ({ onBack, onLevelComplete, initialLevelIdx }) => {
+            const [levelIdx, setLevelIdx] = React.useState(initialLevelIdx || 0);
+            const [questionIdx, setQuestionIdx] = React.useState(0);
+            const [mistakeCount, setMistakeCount] = React.useState(0);
+            const [gameState, setGameState] = React.useState('intro');
+            const [timer, setTimer] = React.useState(0);
+            const [currentQ, setCurrentQ] = React.useState(null);
+            const [currentOpts, setCurrentOpts] = React.useState([]);
+            
+            const currentLevelConfig = LEVELS[levelIdx];
+            const QUESTIONS_PER_LEVEL = 10;
+            const timerRef = React.useRef(null);
+
+            const startLevel = () => {
+                setGameState('playing');
+                setQuestionIdx(0);
+                setMistakeCount(0);
+                nextQuestion(true);
+            };
+
+            const nextQuestion = (isFirst = false) => {
+                const config = LEVELS[levelIdx];
+                let pool = [];
+                if (config.type === 'symbolic') pool = SYMBOLIC_QUESTIONS;
+                else if (config.type === 'numeric') pool = NUMERIC_QUESTIONS;
+                else pool = [...SYMBOLIC_QUESTIONS, ...NUMERIC_QUESTIONS];
+
+                const q = pool[Math.floor(Math.random() * pool.length)];
+                setCurrentQ(q);
+
+                const correctAnswer = q.a;
+                const optPool = q.type === "符號化簡" ? SYMBOLIC_OPTION_POOL : NUMERIC_VALUE_POOL;
+                const distractors = optPool.filter(val => val !== correctAnswer).sort(() => 0.5 - Math.random()).slice(0, 3);
+                setCurrentOpts(shuffleArray([...distractors, correctAnswer]));
+
+                // Reset Timer
+                setTimer(config.time);
+                if (timerRef.current) clearInterval(timerRef.current);
+                
+                timerRef.current = setInterval(() => {
+                    setTimer(prev => {
+                        if (prev <= 0.1) { 
+                            clearInterval(timerRef.current);
+                            handleMistake("timeout");
+                            return 0;
+                        }
+                        return prev - 0.1;
+                    });
+                }, 100);
+            };
+
+            React.useEffect(() => {
+                return () => { if (timerRef.current) clearInterval(timerRef.current); };
+            }, []);
+
+            const handleMistake = (reason) => {
+                const newMistakes = mistakeCount + 1;
+                setMistakeCount(newMistakes);
+
+                if (newMistakes > currentLevelConfig.allowMistakes) {
+                    clearInterval(timerRef.current);
+                    setGameState('exploded');
+                } else {
+                    if (questionIdx + 1 >= QUESTIONS_PER_LEVEL) {
+                        clearInterval(timerRef.current);
+                        setGameState('won');
+                        onLevelComplete(LEVELS[levelIdx]);
+                    } else {
+                        setQuestionIdx(prev => prev + 1);
+                        nextQuestion();
+                    }
+                }
+            };
+
+            const handleAnswer = (val) => {
+                if (gameState !== 'playing') return;
+                
+                if (val === currentQ.a) {
+                    if (questionIdx + 1 >= QUESTIONS_PER_LEVEL) {
+                        clearInterval(timerRef.current);
+                        setGameState('won');
+                        onLevelComplete(LEVELS[levelIdx]);
+                    } else {
+                        setQuestionIdx(prev => prev + 1);
+                        nextQuestion();
+                    }
+                } else {
+                    handleMistake("wrong");
+                }
+            };
+
+            const retryLevel = () => {
+                const targetLevelIdx = currentLevelConfig.resetTo;
+                setLevelIdx(targetLevelIdx);
+                setGameState('intro');
+            };
+            
+            const nextLevel = () => {
+                if (levelIdx + 1 < LEVELS.length) {
+                    setLevelIdx(prev => prev + 1);
+                    setGameState('intro');
+                } else {
+                    onBack(); 
+                }
+            };
+
+            // Intro Screen
+            if (gameState === 'intro') {
+                const cfg = LEVELS[levelIdx];
+                return (
+                    <div className="w-full max-w-md mx-auto text-center pt-10">
+                        <div className="mb-6 bg-white p-6 rounded-3xl shadow-lg border border-slate-200">
+                            {/* Large GameBadge */}
+                            <div className="flex justify-center mb-6">
+                                <GameBadge level={cfg.level} className="w-24 h-24" />
+                            </div>
+
+                            <h2 className="text-3xl font-black text-slate-800 mb-2">第 {cfg.level} 關</h2>
+                            <h3 className="text-xl text-blue-600 font-bold mb-4">{cfg.name}</h3>
+                            <div className="flex flex-col gap-3 mb-6 text-slate-600">
+                                <div className="flex justify-between bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                                    <span className="text-sm font-bold text-slate-400 uppercase">限時</span>
+                                    <span className="font-bold text-slate-800">{cfg.time} 秒 / 題</span>
+                                </div>
+                                <div className="flex justify-between bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                                    <span className="text-sm font-bold text-slate-400 uppercase">容錯</span>
+                                    <span className="font-bold text-red-500">
+                                        {cfg.allowMistakes === 0 ? "一題即死 (0容錯)" : `可錯 ${cfg.allowMistakes} 題`}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                                    <span className="text-sm font-bold text-slate-400 uppercase">失敗懲罰</span>
+                                    <span className="font-bold text-slate-800">
+                                        {cfg.resetTo === levelIdx ? "重來本關" : `退回第 ${LEVELS[cfg.resetTo].level} 關`}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="text-sm text-slate-400 mb-8">
+                                連續挑戰 10 題：<br/>
+                                <span className="font-bold text-slate-600 mt-1 block text-lg">{cfg.badge}</span>
+                            </div>
+                            <button onClick={startLevel} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xl shadow-lg shadow-blue-200 transition-all active:scale-95">
+                                開始挑戰
+                            </button>
+                        </div>
+                        <button onClick={onBack} className="text-slate-400 font-bold text-sm hover:text-slate-600">放棄挑戰，返回選單</button>
+                    </div>
+                );
+            }
+
+            // Game Over (Exploded)
+            if (gameState === 'exploded') {
+                return (
+                    <div className="w-full max-w-md mx-auto text-center pt-10">
+                        <div className="mb-6 bg-red-50 p-8 rounded-3xl border-2 border-red-100 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-red-500/10 explosion-effect"></div>
+                            <div className="relative z-10">
+                                <div className="text-6xl mb-4">💥</div>
+                                <h2 className="text-3xl font-black text-red-600 mb-2">挑戰失敗</h2>
+                                <p className="text-red-800 font-bold mb-2">錯誤次數已達上限！</p>
+                                <p className="text-slate-600 text-sm mb-6">依規則，您必須退回 <span className="font-bold text-slate-800">第 {LEVELS[currentLevelConfig.resetTo].level} 關</span> 重新修煉。</p>
+                                <button onClick={retryLevel} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-red-200 transition-all active:scale-95">
+                                    接受懲罰，重新開始
+                                </button>
+                            </div>
+                        </div>
+                        <button onClick={onBack} className="text-slate-400 font-bold text-sm hover:text-slate-600">返回選單</button>
+                    </div>
+                );
+            }
+
+            // Won Level
+            if (gameState === 'won') {
+                return (
+                    <div className="w-full max-w-md mx-auto text-center pt-10">
+                        <div className="mb-6 bg-yellow-50 p-8 rounded-3xl border-2 border-yellow-200">
+                            <div className="flex justify-center mb-6">
+                                <GameBadge level={currentLevelConfig.level} className="w-32 h-32 animate-bounce" />
+                            </div>
+                            <h2 className="text-2xl font-black text-yellow-700 mb-2">挑戰成功！</h2>
+                            <p className="text-yellow-800 mb-4">獲得徽章</p>
+                            <div className="text-3xl font-bold text-yellow-900 mb-8 bg-white/50 py-2 rounded-lg">{currentLevelConfig.badge}</div>
+                            
+                            {levelIdx + 1 < LEVELS.length ? (
+                                <button onClick={nextLevel} className="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-yellow-200 transition-all active:scale-95">
+                                    下一關：{LEVELS[levelIdx+1].name}
+                                </button>
+                            ) : (
+                                <div className="text-yellow-800 font-bold">恭喜你完成所有挑戰！你是真正的三角函數大師！</div>
+                            )}
+                        </div>
+                        <button onClick={onBack} className="text-slate-400 font-bold text-sm hover:text-slate-600">返回選單</button>
+                    </div>
+                );
+            }
+
+            // Playing
+            const isShaking = timer <= 2.5;
+            const progress = ((questionIdx) / QUESTIONS_PER_LEVEL) * 100;
+            const remainingAllowance = currentLevelConfig.allowMistakes - mistakeCount;
+
+            return (
+                <div className="w-full max-w-md mx-auto relative">
+                     {/* Top Bar */}
+                    <div className="flex justify-between items-center mb-4">
+                         <div className="flex items-center gap-2">
+                             <span className="bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded">Lv.{currentLevelConfig.level}</span>
+                             <div className="flex items-center gap-1">
+                                {currentLevelConfig.allowMistakes === 0 ? (
+                                    <span className="text-xs font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full">💀 一命通關</span>
+                                ) : (
+                                    <div className="flex gap-0.5">
+                                        {[...Array(currentLevelConfig.allowMistakes)].map((_, i) => (
+                                            <IconHeart key={i} filled={i < remainingAllowance} />
+                                        ))}
+                                    </div>
+                                )}
+                             </div>
+                         </div>
+                         <div className="text-xs font-bold text-slate-400">
+                             第 {questionIdx + 1} / {QUESTIONS_PER_LEVEL} 題
+                         </div>
+                    </div>
+
+                    {/* Timer Bomb */}
+                    <div className="flex justify-center mb-6">
+                        <div className={`relative flex items-center justify-center w-20 h-20 rounded-full bg-slate-100 border-4 ${isShaking ? 'border-red-500 bg-red-50' : 'border-slate-200'}`}>
+                            <IconBomb shaking={isShaking} />
+                            <span className={`absolute -bottom-8 font-black text-2xl ${timer <= 2 ? 'text-red-600' : 'text-slate-700'}`}>
+                                {timer.toFixed(1)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Question Card */}
+                    <div className={`w-full bg-white rounded-3xl shadow-xl overflow-hidden border ${isShaking ? 'border-red-300' : 'border-slate-200'} relative select-none min-h-[220px] flex flex-col justify-center`}>
+                        {/* Progress Bar */}
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-100">
+                             <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                        </div>
+
+                        <div className="p-8 text-center">
+                            <div className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight my-4">
+                                {currentQ && <Latex>{currentQ.q}</Latex>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Options */}
+                    <div className="grid grid-cols-2 gap-3 mt-6">
+                        {currentOpts.map((opt, i) => (
+                            <button key={i} onClick={() => handleAnswer(opt)}
+                                className="btn-option p-4 rounded-xl text-xl font-bold bg-white hover:bg-blue-50 hover:border-blue-300 border border-slate-200 text-slate-700 flex items-center justify-center min-h-[80px] shadow-sm active:scale-95 transition-all">
+                                <Latex>{opt}</Latex>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 子頁面：排行榜 ---
+        const Leaderboard = ({ onBack, records }) => {
+            return (
+                <div className="w-full max-w-md mx-auto">
+                    <div className="flex justify-between items-center mb-6">
+                         <button onClick={onBack} className="flex items-center gap-1 text-slate-500 hover:text-blue-600 font-bold">
+                            <IconHome /> 返回主選單
+                        </button>
+                        <h2 className="text-xl font-black text-slate-800">榮譽榜</h2>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        {records.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400">
+                                尚未有闖關紀錄，快去挑戰吧！
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {records.map((rec, i) => (
+                                    <div key={i} className="p-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center text-yellow-700 rounded-full font-bold text-sm">
+                                                <GameBadge level={rec.level} className="w-full h-full" />
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-700">{rec.badge}</div>
+                                                <div className="text-xs text-slate-400">{rec.date}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs font-bold text-slate-400 uppercase">通關等級</div>
+                                            <div className="font-black text-blue-600">Lv.{rec.level}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 主程式 ---
+        const App = () => {
+            const [mode, setMode] = React.useState('menu'); // menu, practice, challenge, leaderboard
+            const [records, setRecords] = React.useState([]);
+
+            // Load records from local storage
+            React.useEffect(() => {
+                const saved = localStorage.getItem('trig_records');
+                if (saved) setRecords(JSON.parse(saved));
+            }, []);
+
+            const saveRecord = (levelConfig) => {
+                const newRecord = {
+                    level: levelConfig.level,
+                    badge: levelConfig.badge,
+                    date: new Date().toLocaleDateString()
+                };
+                const newRecords = [newRecord, ...records].slice(0, 20); 
+                newRecords.sort((a, b) => b.level - a.level);
+                
+                setRecords(newRecords);
+                localStorage.setItem('trig_records', JSON.stringify(newRecords));
+            };
+
+            const renderContent = () => {
+                switch(mode) {
+                    case 'practice':
+                        return <PracticeMode onBack={() => setMode('menu')} />;
+                    case 'challenge':
+                        return <ChallengeMode onBack={() => setMode('menu')} onLevelComplete={saveRecord} />;
+                    case 'leaderboard':
+                        return <Leaderboard onBack={() => setMode('menu')} records={records} />;
+                    default: // menu
+                        return (
+                            <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center min-h-[80vh] gap-6">
+                                <div className="text-center mb-4">
+                                    <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">三角函數大師</h1>
+                                    <p className="text-slate-500 font-medium">誘導公式 & 特別角數值特訓</p>
+                                </div>
+
+                                <button onClick={() => setMode('challenge')} className="w-full py-6 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-2xl shadow-lg shadow-orange-200 flex flex-col items-center justify-center gap-2 transform transition hover:scale-105 active:scale-95 group">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-3xl group-hover:animate-bounce">🔥</span>
+                                        <span className="text-2xl font-black">闖關模式</span>
+                                    </div>
+                                    <span className="text-white/80 text-sm font-bold">限時炸彈挑戰・爭奪皇冠</span>
+                                </button>
+
+                                <button onClick={() => setMode('practice')} className="w-full py-5 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl shadow-sm hover:border-blue-400 hover:text-blue-600 flex flex-col items-center justify-center gap-1 transition-all active:scale-95">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-2xl">📖</span>
+                                        <span className="text-xl font-bold">練習模式</span>
+                                    </div>
+                                    <span className="text-slate-400 text-xs">無時間限制・附重點筆記</span>
+                                </button>
+
+                                <button onClick={() => setMode('leaderboard')} className="flex items-center gap-2 text-slate-400 font-bold hover:text-slate-600 transition-colors mt-4">
+                                    <IconTrophy /> 查看排行榜
+                                </button>
+                                
+                                <div className="mt-8 text-xs text-slate-300 text-center">
+                                    v3.0 SVG Badges Update
+                                </div>
+                            </div>
+                        );
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 text-slate-800 p-4 font-sans">
+                    {renderContent()}
                 </div>
             );
         };
